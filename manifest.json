@@ -1,0 +1,19 @@
+{
+    "manifest_version": 2,
+    "name": "Thirdless",
+    "version": "0.1",
+    "description": "Minimize 3rd party requests",
+    "author": "Harmen",
+    "background": {
+        "scripts": ["background.js"]
+    },
+    "homepage_url": "https://github.com/alicebob/minithree",
+    "minimum_chrome_version": "22.0",
+    "permissions": [
+        "webNavigation",
+        "webRequest",
+        "webRequestBlocking",
+        "http://*/*",
+        "https://*/*"
+    ]
+}
