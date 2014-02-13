@@ -2,18 +2,26 @@ var strippedSendHeaders = {
     "User-Agent": true,
     "Referer": true,
     "Cookie": true,
-    // 'Accept' and 'Accept-Language' as well?
+    // These leak too much info:
+    "Accept": true,
+    "Accept-Language": true,
 };
+
 var strippedReceivedHeaders = {
     "Set-Cookie": true,
     // More?
 };
 
-var goodHosts = {
+var staticWhitelist = {
     // maps.google
     "mts0.google.com": true,
     "mts1.google.com": true,
 };
+
+
+
+// This gets updated while you browse. Keys are [tabid, hostname].
+var dynamicWhitelist = {};
 
 function getHostname(url) {
     if (match = url.match(/^https?:\/\/([^\/]+)\//)) {
@@ -21,46 +29,36 @@ function getHostname(url) {
     }
 }
 
-/*
-function onNavigate(details) {
-    console.log("onNavigate", details.url, details.type);
-    var match;
-    // frameId 0 are top level. This still leaves popups with commercials,
-    // though.
-    if (details.frameId != 0) return;
-    var hostname;
-    if (hostname = getHostname(details.url)) {
-        console.log("Accepting ", hostname);
-        goodHosts[hostname] = true;
-    }
-}
-*/
-
 function onBeforeHeadersSend(details) {
-    // console.log("onBeforeHeadersSend", details.url, details.type);
-    // console.log("sending", details.url, details.requestHeaders);
+    // console.log("onBeforeHeadersSend", details.url, details.type, details.tabId);
     var requestHost = '';
     var hostname = getHostname(details.url);
     if (! hostname) {
         // Weird.
-        console.log("No host in ", details.url);
+        return;
+    }
+
+    if (hostname in staticWhitelist) {
         return;
     }
 
     if (details.type === "main_frame") {
-        // Requests is top level. We accept this host from now on.
-        console.log("Accepting due to main_frame: ", hostname);
-        goodHosts[hostname] = true;
+        // Request is top level. We accept this host from now on for this tab.
+        // console.log("Accepting due to main_frame: ", hostname);
+        if (! ([details.tabId, hostname] in dynamicWhitelist)) {
+            console.log("Accepting due to main_frame: " + hostname + ", tab " + details.tabId);
+        }
+        dynamicWhitelist[[details.tabId, hostname]] = true;
         return;
     }
-    if (hostname in goodHosts) {
+    if ([details.tabId, hostname] in dynamicWhitelist) {
         // Known host. Allow all headers.
         // console.log("Allow as-is", details.url);
         return;
     }
+
     // 3rd party request. Strip some headers.
     var changed = false;
-    console.log("Stripping headers to ", details.url);
     for (var i = 0; i < details.requestHeaders.length; ) {
         if (details.requestHeaders[i].name in strippedSendHeaders) {
             // console.log("Stripping send header ", details.requestHeaders[i], details.url);
@@ -78,33 +76,24 @@ function onBeforeHeadersSend(details) {
 
 function onBeforeHeadersResponse(details) {
     // console.log("onBeforeHeadersResponse", details.url);
-    // console.log("receiving", details.url, details.responseHeaders);
     var to, host;
 
     host = getHostname(details.url);
     if (! host) {
         // Weird.
-        // console.log("No host in ", details.url);
         return;
     }
-    if (host in goodHosts) {
+    if (host in staticWhitelist) {
+        return;
+    }
+
+    if (host in dynamicWhitelist) {
         // Known host. Allow all headers.
         // console.log("Allow received as-is", details.url);
-        /*
-        for (var i = 0; i < details.responseHeaders.length; i++) {
-            if (details.responseHeaders[i].name === "Location") {
-                if (to = getHostname(details.responseHeaders[i].value)) {
-                    console.log("Is a redirect to ", to);
-                    goodHosts[to] = true;
-                }
-                break;
-            }
-        }
-        */
         return;
     }
+
     // 3rd party request. Strip some headers.
-    console.log("Stripping received headers from ", details.url);
     var changed = false;
     for (var i = 0; i < details.responseHeaders.length; ) {
         if (details.responseHeaders[i].name in strippedReceivedHeaders) {
@@ -118,13 +107,9 @@ function onBeforeHeadersResponse(details) {
     if (! changed) {
         return;
     }
-    // TODO: I'm not sure this stuff is picked up :(
-    // console.log("New headers", details.responseHeaders);
     return {responseHeaders: details.responseHeaders};
 }
 
-// chrome.webNavigation.onHistoryStateUpdated.addListener(function(details) {console.log("onHistoryStateUpdated", details.url);});
-// chrome.webNavigation.onBeforeNavigate.addListener(onNavigate);
 chrome.webRequest.onBeforeSendHeaders.addListener(
     onBeforeHeadersSend,
     {

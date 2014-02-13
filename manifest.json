@@ -10,7 +10,6 @@
     "homepage_url": "https://github.com/alicebob/minithree",
     "minimum_chrome_version": "22.0",
     "permissions": [
-        "webNavigation",
         "webRequest",
         "webRequestBlocking",
         "http://*/*",
