@@ -17,6 +17,10 @@ var staticWhitelist = {
     // maps.google
     "mts0.google.com": true,
     "mts1.google.com": true,
+    "khms0.google.com": true,
+    "khms1.google.com": true,
+    "mt0.googleapis.com": true,
+    "mt1.googleapis.com": true,
 };
 
 
